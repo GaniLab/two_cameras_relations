@@ -1,5 +1,6 @@
-/* program to calculate relative position and orientation between two cameras 
+/* program to calculate relative position and orientation between two cameras
  * basic concept from epipolar geometery of stereo vision
+ * All input data is in .txt file format
  */
 #include <iostream>
 #include <sstream>
@@ -7,7 +8,7 @@
 #include <stdio.h>
 #include <iomanip>
 
-
+ // opencv preprocessors to get two cameras relation
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
@@ -19,43 +20,37 @@
 using namespace std;
 using namespace cv;
 
+// Function prototyping
+
+// 2D image points extractor from text file data.
+vector<Point2d> image_points(ifstream& csvImage);
+
 int main(int argc, char **argv)
 {
-	//2d image points 1 
-	ifstream csvImage1("../input_data/single_1.txt");
 
-	vector<Point2f> image_points1;
+	// 2D image points 1 input in pixel
+	ifstream im1;
 
-	float u, v;
+	im1.open("../input_data/single_1.txt");
 
-	while (!csvImage1.eof())
-	{
-		csvImage1 >> u >> v;
-		image_points1.push_back(Point2f(u, v));
-	}
+	vector<Point2d> image1 = image_points(im1);
 
-	cout << " image points1 : " << endl << image_points1 << endl;
+	im1.close();
 
-	csvImage1.close();
+	cout << " image points : " << endl << image1 << endl;
 
 	cout << endl;
 
-	//2d image points 2 
-	ifstream csvImage2("../input_data/single_2.txt");
+	//2d image points 2 input in pixel
+	ifstream im2;
 
-	vector<Point2f> image_points2;
+	im2.open("../input_data/single_2.txt");
 
-	float l, m;
+	vector<Point2d> image2 = image_points(im2);
 
-	while (!csvImage2.eof())
-	{
-		csvImage2 >> l >> m;
-		image_points2.push_back(Point2f(l, m));
-	}
+	im2.close();
 
-	cout << " image points2 : " << endl << image_points2 << endl;
-
-	csvImage2.close();
+	cout << " image points 2 : " << endl << image2 << endl;
 
 	cout << endl;
 
@@ -104,16 +99,19 @@ int main(int argc, char **argv)
 	csvDist_coeffs.close();
 
 
-	//outputing stereo relations
+	// stereo relations
 
-	// initialize Mat object
-	Mat H, E, F, rotation_vector, translation_vector, mask;
+	// initialize Mat object for homography, essential, and fundamental matrix
+	Mat H, E, F;
 
-	ofstream csvHomography("../output_data/homography_matrix.txt");
-
-	H = findHomography(image_points1, image_points2, RANSAC, 3, mask, 2000, 0.995);
+	// initialize Mat object for rotation, translation, and mask matrix
+	Mat rotation_vector, translation_vector, mask;
 
 	// outputing homography matrix into text file
+	ofstream csvHomography("../output_data/homography_matrix.txt");
+
+	H = findHomography(image1, image2, RANSAC, 3, mask, 2000, 0.995);
+
 	csvHomography << setprecision(10) << H << endl;
 
 	csvHomography.close();
@@ -129,7 +127,7 @@ int main(int argc, char **argv)
 	// essential matrix
 	ofstream csvEssential("../output_data/camera_essential.txt");
 
-	E = findEssentialMat(image_points1, image_points2, camera_matrix, RANSAC, 0.995, 3, mask);
+	E = findEssentialMat(image1, image2, camera_matrix, RANSAC, 0.995, 3, mask);
 
 	// outputing essential matrix into text file
 	csvEssential << setprecision(10) << E << endl;
@@ -143,7 +141,7 @@ int main(int argc, char **argv)
 	// fundamental matrix
 	ofstream csvFundamental("../output_data/camera_fundamental.txt");
 
-	F = findFundamentalMat(image_points1, image_points2, FM_RANSAC, 3, 0.99, mask);
+	F = findFundamentalMat(image1, image2, FM_RANSAC, 3, 0.99, mask);
 
 	// outputing fundamental matrix into text file
 	csvFundamental << setprecision(10) << F << endl;
@@ -157,8 +155,8 @@ int main(int argc, char **argv)
 	ofstream csvRelativeRotation("../output_data/relative_rotation.txt");
 	ofstream csvRelativeTranslation("../output_data/relative_translation.txt");
 
-	// Solver for rotation and translation
-	recoverPose(E, image_points1, image_points2, camera_matrix, rotation_vector, translation_vector, mask);
+	// Solver for for finding relative rotation and translation between two cameras
+	recoverPose(E, image1, image2, camera_matrix, rotation_vector, translation_vector, mask);
 
 	Mat relative_rotation(3, 1, CV_64F);
 
@@ -181,4 +179,21 @@ int main(int argc, char **argv)
 	system("pause");
 	return 0;
 
+}
+
+//2D image points extractor from text file data.
+vector<Point2d> image_points(ifstream& csvImage)
+{
+	vector<Point2d> imagePoints;
+
+	double u, v;
+
+	while (!csvImage.eof())
+	{
+		csvImage >> u >> v;
+		imagePoints.push_back(Point2d(u, v));
+	}
+
+
+	return imagePoints;
 }
